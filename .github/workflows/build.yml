@@ -1,0 +1,95 @@
+name: Build Naught Desktop
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-latest
+            platform: linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Rust
+        uses: dtolnay/rust-action/setup@v1
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install pake-cli
+        run: pnpm install -g pake-cli
+
+      - name: Build app
+        run: |
+          pake https://local.dokjaeja.com \
+            --name "나트" \
+            --icon icons/icon.png \
+            --width 1200 \
+            --height 800 \
+            --show-system-tray \
+            --activation-shortcut "CmdOrControl+Shift+N"
+
+      - name: Find build output
+        id: find
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "macos" ]; then
+            FILE=$(find . -name "*.dmg" -type f | head -1)
+          elif [ "${{ matrix.platform }}" = "windows" ]; then
+            FILE=$(find . -name "*.msi" -type f | head -1)
+          else
+            FILE=$(find . -name "*.deb" -type f | head -1)
+          fi
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          echo "Found: $FILE"
+
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.find.outputs.file }}
+          draft: false
+          generate_release_notes: true
+
+      - name: Upload artifact (manual dispatch)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: naught-${{ matrix.platform }}
+          path: ${{ steps.find.outputs.file }}
