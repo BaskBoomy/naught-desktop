@@ -56,9 +56,10 @@ jobs:
         run: pnpm install -g pake-cli
 
       - name: Build app
+        shell: bash
         run: |
           pake https://local.dokjaeja.com \
-            --name "나트" \
+            --name "Naught" \
             --icon icons/icon.png \
             --width 1200 \
             --height 800 \
