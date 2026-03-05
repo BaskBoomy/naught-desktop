@@ -39,7 +39,7 @@ jobs:
           version: 9
 
       - name: Install Rust
-        uses: dtolnay/rust-action/setup@v1
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install Linux dependencies
         if: matrix.platform == 'linux'
